@@ -10,6 +10,7 @@ public class api {
         int serverPort = 8000;
         HttpServer server = HttpServer.create(new InetSocketAddress(serverPort), 0);
         RequestHandler.requestHelloHandler(server);
+        RequestHandler.requestNewsHandler(server);
         server.setExecutor(null);
         server.start();
     }
