@@ -1,6 +1,8 @@
 package webCalculator;
 
-import webCalculator.calc_operations;
+
+
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -15,31 +17,47 @@ import org.json.simple.parser.JSONParser;
 
 import org.apache.commons.io.IOUtils;
 
-
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 
 public class RequestHandler {
     
+    public static void send200Answer(HttpExchange exchange, String ResponseData) throws IOException
+    {
+        exchange.sendResponseHeaders(200, ResponseData.getBytes().length);
+        OutputStream output = exchange.getResponseBody();
+        output.write(ResponseData.getBytes());
+        output.flush();
+        exchange.close();
+    }
+
+    public static void sendBadRequestError(HttpExchange exchange, String ResponseData) throws IOException{
+        
+        exchange.sendResponseHeaders(400, ResponseData.getBytes().length);
+        OutputStream output = exchange.getResponseBody();
+        output.write(ResponseData.getBytes());
+        output.flush();
+        exchange.close();
+    }
+    
     public static void requestHelloHandler(HttpServer server){
         server.createContext("/request", exchange -> {
         if ("GET".equals(exchange.getRequestMethod())) {
             String requestURI = exchange.getRequestURI().toString();
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+            
             if (requestURI.equals("/request")){
                 String respText = "Java REST API works perfectllly!\n";
-                exchange.sendResponseHeaders(200, respText.getBytes().length);
-                OutputStream output = exchange.getResponseBody();
-                output.write(respText.getBytes());
-                output.flush();
-                exchange.close();
+                send200Answer(exchange, respText);
             } else {
                 String respText = requestURI.substring("/request".length()+1, requestURI.length());
                 respText = respText.replace("/", "\n");
-                exchange.sendResponseHeaders(200, respText.getBytes().length);
-                OutputStream output = exchange.getResponseBody();
-                output.write(respText.getBytes());
-                output.flush();
-                exchange.close();
+                send200Answer(exchange, respText);
             }
         } else {
             exchange.sendResponseHeaders(405, -1);
@@ -50,6 +68,11 @@ public class RequestHandler {
     public static void requestNewsHandler(HttpServer server){
         server.createContext("/news", exchange -> {
             if ("GET".equals(exchange.getRequestMethod())){
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
                 String[] params = new String[]{"msid","mlid","utm_source","utm_medium"};
                 String regexTemplate = "(?<data>.+?(?=&|$))";
                 String requestURI = exchange.getRequestURI().toString();
@@ -65,11 +88,7 @@ public class RequestHandler {
                     }
                 }
                 String ResponseString = convertMap(ResponseData);
-                exchange.sendResponseHeaders(200, ResponseString.getBytes().length);
-                OutputStream output = exchange.getResponseBody();
-                output.write(ResponseString.getBytes());
-                output.flush();
-                exchange.close();
+                send200Answer(exchange, ResponseString);
             } else {
                 exchange.sendResponseHeaders(405, -1);
             }
@@ -79,39 +98,67 @@ public class RequestHandler {
     public static void requestJSONHandler(HttpServer server){
         server.createContext("/calc", exchange -> {
             if ("POST".equals(exchange.getRequestMethod())){
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
                 JSONParser parser = new JSONParser();
                 String data = IOUtils.toString(exchange.getRequestBody(), "UTF-8");
                 try {
-                    Map<String, String> ResponseData = new HashMap<String, String>();
+                    Boolean error = false;
+                    JSONObject resultJson = new JSONObject();
+                    JSONArray result_objects = new JSONArray();
                     JSONObject json_data = (JSONObject) parser.parse(data);
                     JSONArray objects = (JSONArray) json_data.get("objects");
                     for (Object item: objects){
                         JSONObject json_item = (JSONObject) item;
                         String operations = (String) json_item.get("operations");
-                        int[] digits = convertJsonArray((JSONArray) json_item.get("numbers"));
-                        int result = digits[0];
-                        System.out.print(digits);
-                        for (int i = 1; i < digits.length; i++) {
-                            switch (operations.charAt(i-1)) {
-                                case ('+'):{
-                                    result = calc_operations.addition(result, digits[i]);
-                                    break;
-                                }
-                                case ('-'):{
-                                    result = calc_operations.subtration(result, digits[i]);
-                                    break;
-                                }
-                                case ('*'):{
-                                    result = calc_operations.multiplication(result, digits[i]);
-                                    break;
-                                }
-                                case ('/'):{
-                                    result = calc_operations.division(result, digits[i]);
-                                    break;
+                        if (operations.replaceAll("[+/*-]*", "").length() == 0){                   
+                            int[] digits = convertJsonArray((JSONArray) json_item.get("numbers"));
+                            int result = digits[0];
+                            for (int i = 1; i < digits.length; i++) {
+                                switch (operations.charAt(i-1)) {
+                                    case ('+'):{
+                                        result = calc_operations.addition(result, digits[i]);
+                                        break;
+                                    }
+                                    case ('-'):{
+                                        result = calc_operations.subtration(result, digits[i]);
+                                        break;
+                                    }
+                                    case ('*'):{
+                                        result = calc_operations.multiplication(result, digits[i]);
+                                        break;
+                                    }
+                                    case ('/'):{
+                                        if (digits[i] != 0){
+                                            result = calc_operations.division(result, digits[i]);
+                                            break;
+                                        } else {
+                                            error = true;
+                                            String ResponseData = "Error. Zero Divison Exception";
+                                            sendBadRequestError(exchange, ResponseData);
+                                            break;
+                                        }
+                                    }
                                 }
                             }
+                            JSONObject tmp = new JSONObject();
+                            tmp.put("result", result);
+                            result_objects.add(tmp);
+                        } else {
+                            error = true;
+                            String ResponseData = "Error. Check input data.";
+                            sendBadRequestError(exchange, ResponseData);
+                            break;
                         }
-                           
+                    }
+                    if (!error) {
+                        resultJson.put("status", "success");
+                        resultJson.put("objects", result_objects);
+                        String ResponseData = resultJson.toString();
+                        send200Answer(exchange, ResponseData);
                     }
                     
                 } catch (Exception e) {

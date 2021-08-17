@@ -1,7 +1,7 @@
 {
     "objects": [{
         "operations": "+*-/",
-        "numbers": [10, 10, 0, 2, 2]
+        "numbers": [10, 10, 0, 2, 0]
       },
       {
         "operations": "++++",
