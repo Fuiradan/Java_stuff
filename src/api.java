@@ -11,6 +11,7 @@ public class api {
         HttpServer server = HttpServer.create(new InetSocketAddress(serverPort), 0);
         RequestHandler.requestHelloHandler(server);
         RequestHandler.requestNewsHandler(server);
+        RequestHandler.requestJSONHandler(server);
         server.setExecutor(null);
         server.start();
     }

@@ -1,0 +1,12 @@
+{
+    "objects": [{
+        "operations": "+-*/",
+        "numbers": [10, 10, 0, 2, 2]
+      },
+      {
+        "operations": "++++",
+        "numbers": [1, 2, 3, 4, 5]
+  
+      }
+    ]
+  }
